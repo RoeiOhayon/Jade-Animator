@@ -3,3 +3,6 @@
 **.vcxproj
 **.vcxproj.filters
 **.vcxproj.user
+**/bin/
+!vendor/bin/premake/
+bin-int/

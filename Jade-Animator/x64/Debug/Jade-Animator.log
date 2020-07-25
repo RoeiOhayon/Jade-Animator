@@ -1,0 +1,4 @@
+﻿  main.cpp
+c:\dev\jade-animator\jade-animator\main.cpp(3): warning C4091: '__declspec(dllimport)': ignored on left of 'Test' when no variable is declared
+  Jade-Animator.vcxproj -> C:\dev\Jade-Animator\x64\Debug\Application.exe
+  Jade-Animator.vcxproj -> C:\dev\Jade-Animator\x64\Debug\Application.pdb (Partial PDB)
