@@ -2,7 +2,7 @@
 
 #include <iostream>
 
-namespace engine {
+namespace Jade {
 
 	void Print()
 	{
