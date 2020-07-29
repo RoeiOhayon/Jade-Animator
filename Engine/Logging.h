@@ -11,6 +11,7 @@
 #endif
 
 /* TODO:
+    IMPORTANT! Fix argument indexing repetition
 
     - Structure the includes and macros definitions (pch's, platform)
     - Add write to file option (for all platforms)
@@ -69,18 +70,18 @@ namespace Utility {
 
 			switch (logType)
 			{
-			case LogType::Warning:
-				strncpy(parsed, "Warning: ", strlen("Warning: "));
-				end += strlen("Warning: ");
-				break;
-			case LogType::Error:
-				strncpy(parsed, "Error: ", strlen("Error: "));
-				end += strlen("Error: ");
-				break;
-			case LogType::Info:
-				strncpy(parsed, "Info: ", strlen("Error: "));
-				end += strlen("Info: ");
-				break;
+				case LogType::Warning:
+					strncpy(parsed, "Warning: ", strlen("Warning: "));
+					end += strlen("Warning: ");
+					break;
+				case LogType::Error:
+					strncpy(parsed, "Error: ", strlen("Error: "));
+					end += strlen("Error: ");
+					break;
+				case LogType::Info:
+					strncpy(parsed, "Info: ", strlen("Error: "));
+					end += strlen("Info: ");
+					break;
 			}
 
 			while (*format != '\0')
