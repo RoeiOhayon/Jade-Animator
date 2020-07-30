@@ -21,6 +21,7 @@
 	* Add advanced formatting options
 */
 
+#define MAX_ARG_LEN 100
 #define INVALID_INDEX -1
 #define MAX_PADDING 15
 
@@ -28,18 +29,29 @@
 #include <iostream>
 #include <tuple>
 #include <exception>
+#include <vector>
 
 namespace Utility {
 
 	enum class LogType { Warning = 0, Error, Info };
 
-	LogType lastLog = LogType::Info;
-
 	template<typename... Args>
 	static inline void log(LogType logType, const char* format, Args... args)
 	{
-		if (lastLog != logType)
+		setColor(logType);
+		std::vprintf(evaluate(logType, format, args...), nullptr);
+	}
+
+	namespace {
+
+		static LogType logTypeCache = LogType::Info;
+		static char argumentBuffer[MAX_ARG_LEN] = { 0 };
+
+		static inline void setColor(LogType logType)
 		{
+			if (logTypeCache == logType)
+				return;
+
 			switch (logType)
 			{
 				case LogType::Warning:
@@ -53,34 +65,28 @@ namespace Utility {
 					break;
 			}
 
-			lastLog = logType;
+			logTypeCache = logType;
 		}
 
-		std::printf(parseFormat(logType, format, args...), args...);
-	}
-
-	namespace {
-
 		template<typename... Args>
-		constexpr const char* parseFormat(LogType logType, const char* format, Args... args)
+		constexpr const char* evaluate(LogType logType, const char* format, Args... args)
 		{
-			char* parsed = new char[std::strlen(format) + MAX_PADDING];
-			std::size_t end = 0;
+			char* result;
 			int argIndex = INVALID_INDEX;
+			std::vector<char> evaluated;
+
+			evaluated.reserve(std::strlen(format));
 
 			switch (logType)
 			{
 				case LogType::Warning:
-					strncpy(parsed, "Warning: ", strlen("Warning: "));
-					end += strlen("Warning: ");
+					copyStrToVec("Warning: ", evaluated);
 					break;
 				case LogType::Error:
-					strncpy(parsed, "Error: ", strlen("Error: "));
-					end += strlen("Error: ");
+					copyStrToVec("Error: ", evaluated);
 					break;
 				case LogType::Info:
-					strncpy(parsed, "Info: ", strlen("Error: "));
-					end += strlen("Info: ");
+					copyStrToVec("Info: ", evaluated);
 					break;
 			}
 
@@ -90,20 +96,31 @@ namespace Utility {
 
 				if (argIndex != INVALID_INDEX)
 				{
-					parsed[end] = '%';
-					parsed[end + 1] = getSpecifier(args..., argIndex);
-					end += 2;
+					loadArgument(args..., argIndex);
+					copyStrToVec(argumentBuffer, evaluated);
 				}
 				else
 				{
-					parsed[end] = *format;
+					evaluated.push_back(*format);
 					format++;
-					end++;
 				}
 			}
 
-			parsed[end] = '\0';
-			return parsed;
+			evaluated.push_back('\0');
+			result = new char[evaluated.size()];
+			for (int i = 0; i < evaluated.size(); i++)
+				result[i] = evaluated[i];
+
+			return result;
+		}
+
+		static constexpr inline void copyStrToVec(const char* str, std::vector<char>& vec)
+		{
+			while (*str != '\0')
+			{
+				vec.push_back(*str);
+				str++;
+			}
 		}
 
 		constexpr int getIndex(const char*& format, bool advance = false)
@@ -137,37 +154,36 @@ namespace Utility {
 		}
 
 		template<typename F, typename... Args>
-		constexpr char getSpecifier(F first, Args... args)
+		constexpr void loadArgument(F first, Args... args)
 		{
 			if (getArgumentByIndex<sizeof...(Args)-1>(args...) == 0)
 			{
 				if (std::is_same<F, int>::value)
-					return 'd';
+					std::sprintf(argumentBuffer, "%d\0", first);
 				else if (std::is_same<F, double>::value)
-					return 'f';
+					std::sprintf(argumentBuffer, "%f\0", first);
 				else if (std::is_same<F, float>::value)
-					return 'f';
+					std::sprintf(argumentBuffer, "%f\0", first);
 				else if (std::is_same<F, char>::value)
-					return 'c';
+					std::sprintf(argumentBuffer, "%c\0", first);
 				else if (std::is_same<F, char*>::value)
-					return 's';
+					std::sprintf(argumentBuffer, "%s\0", first);
 				else if (std::is_same<F, const char*>::value)
-					return 's';
+					std::sprintf(argumentBuffer, "%s\0", first);
 				else if (std::is_same<F, unsigned int>::value)
-					return 'i';
+					std::sprintf(argumentBuffer, "%i\0", first);
 				else
 					throw std::exception("Unsupported argument type");
 			}
-
-			return getSpecifier(args..., getArgumentByIndex<sizeof...(Args)-1>(args...) - 1);
+			else
+				loadArgument(args..., getArgumentByIndex<sizeof...(Args)-1>(args...) - 1);
 		}
 
 		template <std::size_t I, class... Args>
-		decltype(auto) getArgumentByIndex(Args&&... args)
+		static constexpr inline decltype(auto) getArgumentByIndex(Args&&... args)
 		{
 			return std::get<I>(std::forward_as_tuple(args...));
 		}
-
 	}
 
 }
