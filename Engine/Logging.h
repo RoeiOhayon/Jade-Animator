@@ -11,8 +11,6 @@
 #endif
 
 /* TODO:
-    IMPORTANT! Fix argument indexing repetition
-
     - Structure the includes and macros definitions (pch's, platform)
     - Add write to file option (for all platforms)
     - Add colors (for all platforms)
@@ -21,9 +19,8 @@
 	* Add advanced formatting options
 */
 
-#define MAX_ARG_LEN 100
+#define MAX_ARG_LEN 200
 #define INVALID_INDEX -1
-#define MAX_PADDING 15
 
 #include <cstdio>
 #include <iostream>
@@ -36,7 +33,7 @@ namespace Utility {
 	enum class LogType { Warning = 0, Error, Info };
 
 	template<typename... Args>
-	static inline void log(LogType logType, const char* format, Args... args)
+	static constexpr inline void log(LogType logType, const char* format, Args... args)
 	{
 		setColor(logType);
 		std::vprintf(evaluate(logType, format, args...), nullptr);
@@ -47,7 +44,7 @@ namespace Utility {
 		static LogType logTypeCache = LogType::Info;
 		static char argumentBuffer[MAX_ARG_LEN] = { 0 };
 
-		static inline void setColor(LogType logType)
+		static constexpr inline void setColor(LogType logType)
 		{
 			if (logTypeCache == logType)
 				return;
@@ -69,7 +66,7 @@ namespace Utility {
 		}
 
 		template<typename... Args>
-		constexpr const char* evaluate(LogType logType, const char* format, Args... args)
+		static constexpr inline const char* evaluate(LogType logType, const char* format, Args... args)
 		{
 			char* result;
 			int argIndex = INVALID_INDEX;
@@ -123,7 +120,7 @@ namespace Utility {
 			}
 		}
 
-		constexpr int getIndex(const char*& format, bool advance = false)
+		static constexpr inline int getIndex(const char*& format, bool advance = false)
 		{
 			int index = 0;
 			int formatIndex = 1;
@@ -188,5 +185,5 @@ namespace Utility {
 
 }
 
+#undef MAX_ARG_LEN
 #undef INVALID_INDEX
-#undef MAX_PADDING
