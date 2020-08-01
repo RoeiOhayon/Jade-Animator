@@ -1,17 +1,23 @@
 #pragma once
 
 #ifdef _DEBUG
-	#define WARNING_LOG(...) Utility::log(Utility::LogType::Warning, __VA_ARGS__)
-	#define ERROR_LOG(...) Utility::log(Utility::LogType::Error, __VA_ARGS__)
-	#define INFO_LOG(...) Utility::log(Utility::LogType::Info, __VA_ARGS__)
+	#define WARNING_LOG(...) Logging::log(Logging::LogType::Warning, __VA_ARGS__, 0)
+	#define ERROR_LOG(...) Logging::log(Logging::LogType::Error, __VA_ARGS__, 0)
+	#define INFO_LOG(...) Logging::log(Logging::LogType::Info, __VA_ARGS__, 0)
 #else
 	#define WARNING_LOG(...)
 	#define ERROR_LOG(...)
 	#define INFO_LOG(...)
 #endif
 
+/* Example of use:
+
+	- WARNING_LOG("Hello {1} {0}", "world", "my");
+	  will output: hello my world
+*/
+
+// If there are more utilities change the namespace to utils or something
 /* TODO:
-    - Structure the includes and macros definitions (pch's, platform)
     - Add write to file option (for all platforms)
     - Add colors (for all platforms)
     - Add seperate thread option
@@ -19,16 +25,16 @@
 	* Add advanced formatting options
 */
 
-#define MAX_ARG_LEN 200
+#define MAX_ARG_LEN 256
 #define INVALID_INDEX -1
 
 #include <cstdio>
 #include <iostream>
-#include <tuple>
 #include <exception>
 #include <vector>
+#include <tuple>
 
-namespace Utility {
+namespace Logging {
 
 	enum class LogType { Warning = 0, Error, Info };
 
@@ -39,13 +45,21 @@ namespace Utility {
 		std::vprintf(evaluate(logType, format, args...), nullptr);
 	}
 
+	template<std::uint8_t>
+	static inline void log(LogType logType, const char* format)
+	{
+		setColor(logType);
+		std::vprintf(format, nullptr);
+	}
+
 	namespace {
 
-		static LogType logTypeCache = LogType::Info;
 		static char argumentBuffer[MAX_ARG_LEN] = { 0 };
 
-		static constexpr inline void setColor(LogType logType)
+		static inline void setColor(LogType logType)
 		{
+			static LogType logTypeCache = LogType::Info;
+
 			if (logTypeCache == logType)
 				return;
 
@@ -150,6 +164,9 @@ namespace Utility {
 			return index;
 		}
 
+		#pragma warning( push )
+		#pragma warning( disable : 4477 )
+		#pragma warning( disable : 4313 )
 		template<typename F, typename... Args>
 		constexpr void loadArgument(F first, Args... args)
 		{
@@ -175,6 +192,7 @@ namespace Utility {
 			else
 				loadArgument(args..., getArgumentByIndex<sizeof...(Args)-1>(args...) - 1);
 		}
+		#pragma warning( pop )
 
 		template <std::size_t I, class... Args>
 		static constexpr inline decltype(auto) getArgumentByIndex(Args&&... args)
