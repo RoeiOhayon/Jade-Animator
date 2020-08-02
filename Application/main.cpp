@@ -24,8 +24,10 @@ int main()
 
 
 
-	std::cout << "\nMy Log: " << float(mid - beg) / CLOCKS_PER_SEC << '\n'
-			  << "Printf: " << float(end - mid) / CLOCKS_PER_SEC;
+	std::cout
+		<< "\nMy Log: " << float(mid - beg) / CLOCKS_PER_SEC << '\n'
+		<< "Printf: " << float(end - mid) / CLOCKS_PER_SEC << "\n\n"
+		<< "Ratio: " << (float(mid - beg) / CLOCKS_PER_SEC) / (float(end - mid) / CLOCKS_PER_SEC) << '\n';
 
 	std::cin.get();
 	return 0;

@@ -1,9 +1,9 @@
 #pragma once
 
 #ifdef _DEBUG
-	#define WARNING_LOG(...) Logging::log(Logging::LogType::Warning, __VA_ARGS__, 0)
-	#define ERROR_LOG(...) Logging::log(Logging::LogType::Error, __VA_ARGS__, 0)
-	#define INFO_LOG(...) Logging::log(Logging::LogType::Info, __VA_ARGS__, 0)
+	#define WARNING_LOG(fmt, ...) Logging::log(Logging::LogType::Warning, fmt, false, __VA_ARGS__)
+	#define ERROR_LOG(fmt, ...) Logging::log(Logging::LogType::Error, fmt, false, __VA_ARGS__)
+	#define INFO_LOG(fmt, ...) Logging::log(Logging::LogType::Info, fmt, false, __VA_ARGS__)
 #else
 	#define WARNING_LOG(...)
 	#define ERROR_LOG(...)
@@ -18,10 +18,9 @@
 
 // If there are more utilities change the namespace to utils or something
 /* TODO:
-    - Add write to file option (for all platforms)
     - Add colors (for all platforms)
     - Add seperate thread option
-	- Add more type support
+
 	* Add advanced formatting options
 */
 
@@ -30,26 +29,94 @@
 
 #include <cstdio>
 #include <iostream>
+#include <sstream>
 #include <exception>
 #include <vector>
 #include <tuple>
 
 namespace Logging {
 
-	enum class LogType { Warning = 0, Error, Info };
+	enum class LogType { Warning = 0, Error, Info, None };
 
 	template<typename... Args>
-	static constexpr inline void log(LogType logType, const char* format, Args... args)
+	void fileLog(LogType logType, const char* fileName, Args... args)
 	{
-		setColor(logType);
-		std::vprintf(evaluate(logType, format, args...), nullptr);
+		log(LogType, fileName, true, args);
 	}
 
-	template<std::uint8_t>
-	static inline void log(LogType logType, const char* format)
+	template<typename... Args>
+	void log(LogType logType, const char* format, bool toFile,  Args... args)
 	{
+		FILE* destFile;
+
 		setColor(logType);
-		std::vprintf(format, nullptr);
+
+		if (sizeof...(args) == 0)
+		{
+			if (toFile)
+			{
+				destFile = fopen(format, "a");
+				std::vfprintf(destFile, format, nullptr);
+				fclose(destFile);
+			}
+			else
+				std::vprintf(format, nullptr);
+		}
+		else
+		{
+			std::vector<char> buffer;
+			char* result;
+			int argIndex = INVALID_INDEX;
+
+			// assuming average of argument length is 2
+			buffer.reserve(std::strlen(format) + sizeof...(args) * 2);
+
+			switch (logType)
+			{
+				case LogType::Warning:
+					copyStrToVec("Warning: ", buffer);
+					break;
+				case LogType::Error:
+					copyStrToVec("Error: ", buffer);
+					break;
+				case LogType::Info:
+					copyStrToVec("Info: ", buffer);
+					break;
+				case LogType::None:
+					break;
+			}
+
+			while (*format != '\0')
+			{
+				argIndex = getIndex(format, true);
+
+				if (argIndex != INVALID_INDEX)
+				{
+					loadArgument(args..., argIndex);
+					copyStrToVec(argumentBuffer, buffer);
+				}
+				else
+				{
+					buffer.push_back(*format);
+					format++;
+				}
+			}
+
+			buffer.push_back('\0');
+			result = new char[buffer.size()];
+			copyVecToStr(buffer, result);
+
+			if (toFile)
+			{
+				destFile = fopen(format, "a");
+				std::vfprintf(destFile, result, nullptr);
+				fclose(destFile);
+			}
+			else
+				std::vprintf(result, nullptr);
+			
+			delete[] result;
+		}
 	}
 
 	namespace {
@@ -74,58 +141,21 @@ namespace Logging {
 				case LogType::Info:
 					system("color 7");
 					break;
+				case LogType::None:
+					system("color 7");
+					break;
 			}
 
 			logTypeCache = logType;
 		}
 
-		template<typename... Args>
-		static constexpr inline const char* evaluate(LogType logType, const char* format, Args... args)
+		static inline void copyVecToStr(std::vector<char> vec, char*& str)
 		{
-			char* result;
-			int argIndex = INVALID_INDEX;
-			std::vector<char> evaluated;
-
-			evaluated.reserve(std::strlen(format));
-
-			switch (logType)
-			{
-				case LogType::Warning:
-					copyStrToVec("Warning: ", evaluated);
-					break;
-				case LogType::Error:
-					copyStrToVec("Error: ", evaluated);
-					break;
-				case LogType::Info:
-					copyStrToVec("Info: ", evaluated);
-					break;
-			}
-
-			while (*format != '\0')
-			{
-				argIndex = getIndex(format, true);
-
-				if (argIndex != INVALID_INDEX)
-				{
-					loadArgument(args..., argIndex);
-					copyStrToVec(argumentBuffer, evaluated);
-				}
-				else
-				{
-					evaluated.push_back(*format);
-					format++;
-				}
-			}
-
-			evaluated.push_back('\0');
-			result = new char[evaluated.size()];
-			for (int i = 0; i < evaluated.size(); i++)
-				result[i] = evaluated[i];
-
-			return result;
+			for (int i = 0; i < vec.size(); i++)
+				str[i] = vec[i];
 		}
 
-		static constexpr inline void copyStrToVec(const char* str, std::vector<char>& vec)
+		static inline void copyStrToVec(const char* str, std::vector<char>& vec)
 		{
 			while (*str != '\0')
 			{
@@ -134,7 +164,7 @@ namespace Logging {
 			}
 		}
 
-		static constexpr inline int getIndex(const char*& format, bool advance = false)
+		int getIndex(const char*& format, bool advance = false)
 		{
 			int index = 0;
 			int formatIndex = 1;
@@ -168,7 +198,7 @@ namespace Logging {
 		#pragma warning( disable : 4477 )
 		#pragma warning( disable : 4313 )
 		template<typename F, typename... Args>
-		constexpr void loadArgument(F first, Args... args)
+		void loadArgument(F first, Args... args)
 		{
 			if (getArgumentByIndex<sizeof...(Args)-1>(args...) == 0)
 			{
@@ -186,8 +216,16 @@ namespace Logging {
 					std::sprintf(argumentBuffer, "%s\0", first);
 				else if (std::is_same<F, unsigned int>::value)
 					std::sprintf(argumentBuffer, "%i\0", first);
+				else if (std::is_same<F, unsigned char>::value)
+					std::sprintf(argumentBuffer, "%u\0", first);
+				else if (std::is_same<F, std::string>::value)
+					std::sprintf(argumentBuffer, "%s\0", ((std::string*)&first)->c_str());
 				else
-					throw std::exception("Unsupported argument type");
+				{
+					std::stringstream ss;
+					ss << argumentBuffer;
+					ss >> argumentBuffer;
+				}
 			}
 			else
 				loadArgument(args..., getArgumentByIndex<sizeof...(Args)-1>(args...) - 1);
@@ -195,7 +233,7 @@ namespace Logging {
 		#pragma warning( pop )
 
 		template <std::size_t I, class... Args>
-		static constexpr inline decltype(auto) getArgumentByIndex(Args&&... args)
+		static inline decltype(auto) getArgumentByIndex(Args&&... args)
 		{
 			return std::get<I>(std::forward_as_tuple(args...));
 		}
